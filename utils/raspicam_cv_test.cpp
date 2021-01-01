@@ -244,7 +244,7 @@ private:
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
-            processImage(testImage , false , true, [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
+            processImage(image , false , true, [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
             cv::Rect& rec , int workId){
                 double t1 = double (cv::getTickCount());
                 double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
@@ -391,7 +391,6 @@ void processImage(cv::Mat &image ,
     int down_height = 320;
     cv::Mat resized;
     cv::resize(image, resized, cv::Size(down_width, down_height), cv::INTER_LINEAR);
-
     int W = resized.size().width;
     int H = resized.size().height;
 
@@ -476,21 +475,22 @@ int main ( int argc,char **argv ) {
     double time_=cv::getTickCount();
     double thresholdFPS = 0;
     double contourFPS = 0;
+    // cv::Mat img = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
+
     for ( int i=0; i<nCount || nCount==0; i++ ) {
         Camera.grab();
         Camera.retrieve ( image );
-        // / cv::Mat img = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
         // image = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
-        
+        // image = img;
         double t0 = 0;
         double t1 = 0;
 
         contourFPS += double (t1-t0);
 
         t0 = double (cv::getTickCount());
-        processImage(image , true , true, [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
+        // processImage(image , true , true, [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
 
-        });
+        // });
         t1 = double (cv::getTickCount());
         thresholdFPS += double (t1-t0);
 
