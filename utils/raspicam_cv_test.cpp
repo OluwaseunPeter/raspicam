@@ -42,8 +42,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fstream>
 #include <sstream>
 #include "raspicam_cv.h"
-
+using namespace cv;
 using namespace std;
+
 bool doTestSpeedOnly=false;
 //parse command line
 //returns the index of a command line param in argv. If not found, return -1
@@ -127,10 +128,30 @@ int main ( int argc,char **argv ) {
     cout<<"Capturing"<<endl;
 
     double time_=cv::getTickCount();
-
+    double thresholdFPS = 0;
+    double contourFPS = 0;
     for ( int i=0; i<nCount || nCount==0; i++ ) {
         Camera.grab();
         Camera.retrieve ( image );
+        // cv::Mat img = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
+        cv::Mat thresh;
+        // cv::adaptiveThreshold(image,thresh,255,cv::ADAPTIVE_THRESH_MEAN_C , cv::THRESH_BINARY, 11, 0 );
+        // adaptiveThreshold(image,thresh,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,11,0);
+        double t0 = double (cv::getTickCount());
+        cv::threshold(image, thresh, 200, 255, cv::THRESH_BINARY );//+ cv::THRESH_OTSU);
+        std::vector<std::vector<cv::Point> > contours;
+        double t1 = double (cv::getTickCount());
+        cv::findContours( thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
+        double t2 = double (cv::getTickCount());
+
+        thresholdFPS += double (t1-t0);
+        contourFPS += double (t2-t1);
+
+        cv::Scalar color(255, 0, 0);
+        for (size_t idx = 0; idx < contours.size(); idx++) {
+            // cv::drawContours(image, contours, idx, color);
+        }
+
         if ( !doTestSpeedOnly ) {
             if ( i%5==0 ) 	  cout<<"\r capturing ..."<<i<<"/"<<nCount<<std::flush;
             if ( i%30==0 && i!=0 )
@@ -139,7 +160,10 @@ int main ( int argc,char **argv ) {
     }
     if ( !doTestSpeedOnly )  cout<<endl<<"Images saved in imagexx.jpg"<<endl;
     double secondsElapsed= double ( cv::getTickCount()-time_ ) /double ( cv::getTickFrequency() ); //time in second
-    cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<< ( float ) ( ( float ) ( nCount ) /secondsElapsed ) <<endl;
+    double thresholdSecondsElapse = thresholdFPS / double ( cv::getTickFrequency() );
+    double contourSecondsElapse = contourFPS / double ( cv::getTickFrequency() );
+
+    cout<< secondsElapsed<<" seconds for "<< nCount<<"  frames : FPS = "<< ( float ) ( ( float ) ( nCount ) /secondsElapsed ) << "  Thresh FPS: " << ( float ) ( ( float ) ( nCount ) /thresholdSecondsElapse )  << "  contour FPS: "  << ( float ) ( ( float ) ( nCount ) /contourSecondsElapse ) <<endl;
     Camera.release();
 
 }
