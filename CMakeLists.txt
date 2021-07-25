@@ -59,8 +59,11 @@ IF(OpenCV_FOUND)
   SET(PROJECT_CV_CREATED_FLAG "YES")  
 ENDIF()
 
+FIND_PACKAGE(Boost 1.60.0 REQUIRED COMPONENTS system thread regex)
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
+SET(BOOST_USED_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
 
- 
 # ----------------------------------------------------------------------------
 #   PROJECT CONFIGURATION
 #   force some variables that could be defined in the command line to be written to cache
