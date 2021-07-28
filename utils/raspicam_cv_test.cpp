@@ -41,9 +41,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/functional.hpp>
+#include <boost/json/src.hpp>
 #include "raspicam_cv.h"
 using namespace cv;
 using namespace std;
@@ -51,6 +53,149 @@ using namespace std;
 bool doTestSpeedOnly=false;
 constexpr short multicast_port = 30001;
 constexpr short server_port = 30002;
+
+void processImage(cv::Mat &image , boost::function<void(std::vector<std::vector<cv::Point> >&)> callback);
+
+class  raspiInfo
+{
+
+  public:
+     raspiInfo()
+        {
+        size_t pos_S,pos_E;
+        unsigned long ltemp;
+        std::string  cmdline,cpuinfo;
+        std::string  string1,string2;
+        istringstream ss;
+
+        Model="?";
+        Revision = -1;
+        SerialNumber=0;
+        RamSizeInMB=0;
+        IOBase=0;
+        ProcessorName="";
+        ProcessorType=0;
+        ProcessorCount=0;
+
+        try {
+            ifstream  fs("/proc/cpuinfo");
+
+            while(!fs.eof())
+                {
+                    std::getline(fs, string1);
+
+                    if(ExtractToken(string1,"model name",string2))
+
+                        ProcessorName= string2;
+
+                    if(ExtractToken(string1,"processor",string2))
+                        ProcessorCount++;
+
+                    if(ExtractToken(string1,"Revision",string2))
+                    {
+                        ss.str(string2);
+                        ss >> std::hex >> BoardRevision >> std::dec;
+                        ss.clear();
+                    }
+                    if(ExtractToken(string1,"Serial",string2))
+                    {
+                        ss.str(string2);
+                        ss >> std::hex >> SerialNumber >> std::dec;
+                        ss.clear();
+                    }
+                }
+
+            } catch (exception e) {
+            // unkown
+            return;
+            }
+
+        if(ProcessorCount==0) 
+            ProcessorCount=1;
+
+
+        if(BoardRevision & 0x800000)
+            {
+            //ok new method
+            Revision = BoardRevision & 0xf;
+            // display Raspberry Pi type
+            unsigned char ModelType = (BoardRevision >> 4) & 0xff;
+            switch(ModelType)
+                {
+                case  0 : Model="A";break;
+                case  1 : Model="B";break;
+                case  2 : Model="A+";break;
+                case  3 : Model="B+";break;
+                case  4 : Model="Pi 2 B";break;
+                case  5 : Model="Alpha";break;
+                case  6 : Model="Compute Module";break;
+            }
+            // Ram size in MB
+            ltemp = (BoardRevision >> 20 ) & 7;
+
+            switch(ltemp)
+            {
+                case  0 :  RamSizeInMB = 256;break;
+                case  1 :  RamSizeInMB = 512;break;
+                case  2 :  RamSizeInMB = 1024;break;
+                default :  RamSizeInMB = 0;IOBase=0;break;
+                }
+            // processor
+            ProcessorType =  (BoardRevision >> 12) & 0xffff;
+            }
+            else
+            {
+                //old method;
+                RamSizeInMB=512;
+                Revision = BoardRevision & 0x1f;
+                switch(Revision)
+                {
+                case 2:
+                case 3: I2CDevice=0;
+                case 4: Model="B";RamSizeInMB=256;break;
+                case 5:
+                case 6:
+                case 0xd:
+                case 0xe:
+                case 0xf:  Model="B";break;
+                case 7:
+                case 8:
+                case 9:  Model="A";RamSizeInMB=256;break;
+                case 0x10: Model="B+";break;
+                case 0x11: Model="Compute Module";break;
+                case 0x12: Model="A+";RamSizeInMB=256;break;
+                }
+            }
+
+    }
+
+    std::string    Model;
+    std::string    ProcessorName;
+    int            ProcessorCount;
+    unsigned short ProcessorType;
+    int            Revision;
+    unsigned long  IOBase;
+    unsigned long long SerialNumber;
+    int            RamSizeInMB;
+    unsigned long  BoardRevision;
+    int            I2CDevice;
+
+  private:
+    bool ExtractToken(std::string source, std::string label,std::string& value)
+    {
+
+        size_t  found;
+        std::string  theLabel;
+        found = source.find(":");
+        if(found == std::string::npos) return false;
+        theLabel = source.substr(0,found);
+
+        if(theLabel.find(label) == std::string::npos) return false;
+        value = source.substr(found+1);
+        return true;
+    }
+
+};
 
 class receiver
 {
@@ -86,30 +231,34 @@ private:
           {
             // std::cout.write(data_.data(), length);
             // std::cout << " " << sender_endpoint_.address().to_string() ;
-            // std::cout << std::endl;
+            //?? std::cout << std::endl;
 
-            double t0 = double (cv::getTickCount());
-            Camera.grab();
-            Camera.retrieve ( image );
-            image = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
-            
-            std::string request_id(data_.data() , length);
-            processImage(image , [this](std::vector<std::vector<cv::Point> > &contours){
-                send_to_server(contours , sender_endpoint_.address())
-            });
-            double t1 = double (cv::getTickCount());
             double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
             float fps = ( float ) ( ( float ) ( 1 ) / secondsElapse );
-            std::cout << "FPS: " <<  fps << std::endl;
+            std::cout << "Last FPS: " <<  fps << std::endl;
 
+            t0 = double (cv::getTickCount());
+            Camera.grab();
+            Camera.retrieve ( image );
+            image = testImage;
+
+            std::string request_id(data_.data() , length);
+            boost::asio::ip::address address = sender_endpoint_.address();
+            processImage(image , [this,address,request_id](std::vector<std::vector<cv::Point> > &contours){
+                t1 = double (cv::getTickCount());
+                send_to_server(contours , address , request_id);
+            });
+            
             do_receive();
+
           }
         });
     }
 
-    void send_to_server(std::vector<std::vector<cv::Point> > &contours , boost::asio::ip::address address)
+    void send_to_server(std::vector<std::vector<cv::Point> > &contours , 
+                        boost::asio::ip::address address,
+                        std::string request_id)
     {
-        std::cout << contours.size() << " " << address.to_string() << std::endl;
         boost::asio::ip::tcp::socket sock(io_context_);
         boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
         boost::system::error_code error;
@@ -120,7 +269,38 @@ private:
             return;
         }
 
-        std::cout << "Connected!!" << std::endl;
+        boost::json::object obj;
+        obj["request_id"] = request_id;
+
+        boost::json::array contours_arrays;
+        for (size_t idx = 0; idx < contours.size(); idx++) {
+            std::vector<cv::Point> points = contours[idx];
+
+            boost::json::array contours_array;
+            for (size_t idy = 0; idy < points.size(); idy++) {
+                cv::Point point = points[idy];
+                boost::json::array pointArr({point.x,point.y });
+                contours_array.emplace_back(pointArr);
+            }
+
+            contours_arrays.emplace_back(contours_array);
+        }
+
+        obj["contours"] = contours_arrays;
+        obj["device_id"] = RapsInfo.SerialNumber;
+
+        try {
+            boost::asio::streambuf response;
+            std::ostream response_stream(&response);
+            response_stream << obj;
+            boost::asio::write(sock, response);
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << "Exception: " << e.what() << "\n";
+        }
+
+        sock.close();
     }
 
   boost::asio::ip::udp::socket socket_;
@@ -129,23 +309,27 @@ private:
   boost::asio::io_context& io_context_;
   raspicam::RaspiCam_Cv &Camera;
   cv::Mat image;
+  cv::Mat testImage = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
+  raspiInfo RapsInfo;
+  double t0 = 0;
+  double t1 = 0;
 };
 
 //parse command line
 //returns the index of a command line param in argv. If not found, return -1
-int findParam ( string param,int argc,char **argv ) {
+int findParam ( std::string param,int argc,char **argv ) {
     int idx=-1;
     for ( int i=0; i<argc && idx==-1; i++ )
-        if ( string ( argv[i] ) ==param ) idx=i;
+        if ( std::string ( argv[i] ) ==param ) idx=i;
     return idx;
 
 }
 //parse command line
 //returns the value of a command line param. If not found, defvalue is returned
-float getParamVal ( string param,int argc,char **argv,float defvalue=-1 ) {
+float getParamVal ( std::string param,int argc,char **argv,float defvalue=-1 ) {
     int idx=-1;
     for ( int i=0; i<argc && idx==-1; i++ )
-        if ( string ( argv[i] ) ==param ) idx=i;
+        if ( std::string ( argv[i] ) ==param ) idx=i;
     if ( idx==-1 ) return defvalue;
     else return atof ( argv[  idx+1] );
 }
@@ -245,7 +429,8 @@ int main ( int argc,char **argv ) {
         cerr<<"Error opening camera"<<endl;
         return -1;
     }
-    cout<<"Connected to camera ="<<Camera.getId() <<endl;
+    raspiInfo RapsInfo;
+    cout<<"Connected to camera ="<<Camera.getId()  << ": CPU Serial = " << RapsInfo.SerialNumber <<endl;
 
     try
     {
