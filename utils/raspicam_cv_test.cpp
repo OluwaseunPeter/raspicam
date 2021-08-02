@@ -470,16 +470,6 @@ int main ( int argc,char **argv ) {
         double t0 = 0;
         double t1 = 0;
 
-        // cv::Mat thresh;
-        //// cv::adaptiveThreshold(image,thresh,255,cv::ADAPTIVE_THRESH_MEAN_C , cv::THRESH_BINARY, 11, 0 );
-        //// adaptiveThreshold(image,thresh,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,11,0);
-
-        // t0 = double (cv::getTickCount());
-        // cv::threshold(image, thresh, 200, 255, cv::THRESH_BINARY );//+ cv::THRESH_OTSU);
-        // std::vector<std::vector<cv::Point> > contours;
-        // cv::findContours( thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
-        // t1 = double (cv::getTickCount());
-
         contourFPS += double (t1-t0);
 
         t0 = double (cv::getTickCount());

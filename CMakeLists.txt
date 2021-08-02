@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #   Basic Configuration
 # ----------------------------------------------------------------------------
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 
 if (POLICY CMP0048)
     cmake_policy(SET CMP0048 NEW)
@@ -52,17 +52,18 @@ IF( (NOT mmal_LIBS ) OR (NOT mmalutil_LIBS) OR (NOT mmalcore_LIBS) )
 ENDIF()
 
 #If opencv installed, creates the libraspicam_cv library module
-FIND_PACKAGE(OpenCV)
+FIND_PACKAGE(OpenCV REQUIRED core highgui)
 IF(OpenCV_FOUND)
-  include_directories(${OpenCV_INCLUDE_DIRS})
+  INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
   SET(LIB_COMPONENTS ${LIB_COMPONENTS} ${PROJECT_NAME}_cv)
-  SET(PROJECT_CV_CREATED_FLAG "YES")  
+  SET(PROJECT_CV_CREATED_FLAG "YES")
 ENDIF()
 
+####___-------BOOST LIB
 FIND_PACKAGE(Boost 1.75.0 REQUIRED COMPONENTS system thread )
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
-SET(BOOST_USED_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
+SET(BOOST_USED_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} )
 
 # ----------------------------------------------------------------------------
 #   PROJECT CONFIGURATION
