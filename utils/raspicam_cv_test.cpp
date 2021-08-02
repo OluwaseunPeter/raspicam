@@ -233,20 +233,22 @@ private:
             // std::cout << " " << sender_endpoint_.address().to_string() ;
             //? std::cout << std::endl;
 
-            double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
-            float fps = ( float ) ( ( float ) ( 1 ) / secondsElapse );
-            std::cout << "Last FPS: " <<  fps << std::endl;
+            // double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
+            // float fps = ( float ) ( ( float ) ( 1 ) / secondsElapse );
+            // std::cout << "Last FPS: " <<  fps << std::endl;
 
-            t0 = double (cv::getTickCount());
+            double t0 = double (cv::getTickCount());
             Camera.grab();
             Camera.retrieve ( image );
-            image = testImage;
+            // image = testImage;
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
-            processImage(image , [this,address,request_id](std::vector<std::vector<cv::Point> > &contours){
-                t1 = double (cv::getTickCount());
-                send_to_server(contours , address , request_id);
+            processImage(testImage , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours){
+                double t1 = double (cv::getTickCount());
+                double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
+                float fps = ( float ) ( ( float ) ( 1 ) / secondsElapse );
+                send_to_server(contours , address , request_id , fps);
             });
             
             do_receive();
@@ -257,7 +259,8 @@ private:
 
     void send_to_server(std::vector<std::vector<cv::Point> > &contours , 
                         boost::asio::ip::address address,
-                        std::string request_id)
+                        std::string request_id,
+                        float fps)
     {
         boost::asio::ip::tcp::socket sock(io_context_);
         boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
@@ -271,19 +274,22 @@ private:
 
         boost::json::object obj;
         obj["request_id"] = request_id;
+        obj["fps"] = fps;
 
         boost::json::array contours_arrays;
         for (size_t idx = 0; idx < contours.size(); idx++) {
             std::vector<cv::Point> points = contours[idx];
-
-            boost::json::array contours_array;
-            for (size_t idy = 0; idy < points.size(); idy++) {
-                cv::Point point = points[idy];
-                boost::json::array pointArr({point.x,point.y });
-                contours_array.emplace_back(pointArr);
-            }
-
-            contours_arrays.emplace_back(contours_array);
+            
+            double area = cv::contourArea(points);
+            Point2f center;
+            float radius = 0 ;
+            cv::minEnclosingCircle(points , center , radius);
+            
+            boost::json::object contourDetails({
+                {"area" , area },
+                {"center" , {center.x , center.y , radius}},
+                });
+            contours_arrays.emplace_back(contourDetails);
         }
 
         obj["contours"] = contours_arrays;
@@ -311,8 +317,8 @@ private:
   cv::Mat image;
   cv::Mat testImage = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
   raspiInfo RapsInfo;
-  double t0 = 0;
-  double t1 = 0;
+//   double t0 = 0;
+//   double t1 = 0;
 };
 
 //parse command line
