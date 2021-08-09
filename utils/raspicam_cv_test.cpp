@@ -240,7 +240,6 @@ private:
             double t0 = double (cv::getTickCount());
             Camera.grab();
             Camera.retrieve ( image );
-            // image = testImage;
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
@@ -271,6 +270,9 @@ private:
             std::cerr << boost::system::system_error(error).what() << std::endl;
             return;
         }
+
+        boost::asio::ip::tcp::no_delay option(true);
+        sock.set_option(option);
 
         boost::json::object obj;
         obj["request_id"] = request_id;
@@ -317,8 +319,6 @@ private:
   cv::Mat image;
   cv::Mat testImage = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
   raspiInfo RapsInfo;
-//   double t0 = 0;
-//   double t1 = 0;
 };
 
 //parse command line
@@ -330,6 +330,7 @@ int findParam ( std::string param,int argc,char **argv ) {
     return idx;
 
 }
+
 //parse command line
 //returns the value of a command line param. If not found, defvalue is returned
 float getParamVal ( std::string param,int argc,char **argv,float defvalue=-1 ) {
@@ -466,7 +467,6 @@ int main ( int argc,char **argv ) {
         // / cv::Mat img = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
         // image = imread("test_contour4.jpg",cv::IMREAD_GRAYSCALE);
         
-
         double t0 = 0;
         double t1 = 0;
 
@@ -478,11 +478,6 @@ int main ( int argc,char **argv ) {
         });
         t1 = double (cv::getTickCount());
         thresholdFPS += double (t1-t0);
-
-        // cv::Scalar color(255, 0, 0);
-        // for (size_t idx = 0; idx < contours.size(); idx++) {
-        //     // cv::drawContours(image, contours, idx, color);
-        // }
 
         if ( !doTestSpeedOnly ) {
             if ( i%5==0 ) 	  cout<<"\r capturing ..."<<i<<"/"<<nCount<<std::flush;
