@@ -261,18 +261,18 @@ private:
                         std::string request_id,
                         float fps)
     {
-        boost::asio::ip::tcp::socket sock(io_context_);
-        boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
-        boost::system::error_code error;
-        sock.connect(sender_endpoint, error);
+        // boost::asio::ip::tcp::socket sock(io_context_);
+        // boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
+        // boost::system::error_code error;
+        // sock.connect(sender_endpoint, error);
 
-        if(error){
-            std::cerr << boost::system::system_error(error).what() << std::endl;
-            return;
-        }
+        // if(error){
+        //     std::cerr << boost::system::system_error(error).what() << std::endl;
+        //     return;
+        // }
 
-        boost::asio::ip::tcp::no_delay option(true);
-        sock.set_option(option);
+        // boost::asio::ip::tcp::no_delay option(true);
+        // sock.set_option(option);
 
         boost::json::object obj;
         obj["request_id"] = request_id;
@@ -301,14 +301,19 @@ private:
             boost::asio::streambuf response;
             std::ostream response_stream(&response);
             response_stream << obj;
-            boost::asio::write(sock, response);
+            // boost::asio::write(sock, response);
+            boost::asio::ip::udp::socket s(io_context_, 
+                    boost::asio::ip::udp::endpoint(
+                            boost::asio::ip::udp::v4(), 0));
+            boost::asio::ip::udp::endpoint destination(address, server_port);
+            s.send_to(boost::asio::buffer(response.data() , response.size()), destination);
         }
         catch (std::exception& e)
         {
             std::cerr << "Exception: " << e.what() << "\n";
         }
 
-        sock.close();
+        // sock.close();
     }
 
   boost::asio::ip::udp::socket socket_;
