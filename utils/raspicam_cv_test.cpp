@@ -302,11 +302,11 @@ private:
             std::ostream response_stream(&response);
             response_stream << obj;
             // boost::asio::write(sock, response);
-            boost::asio::ip::udp::socket s(io_context_, 
-                boost::asio::ip::udp::endpoint(
-                        boost::asio::ip::udp::v4(), 0));
-            boost::asio::ip::udp::endpoint destination(address, server_port);
-            s.send_to(boost::asio::buffer(response.data() , response.size()), destination);
+            // boost::asio::ip::udp::socket s(io_context_, 
+            //     boost::asio::ip::udp::endpoint(
+            //             boost::asio::ip::udp::v4(), 0));
+            // boost::asio::ip::udp::endpoint destination(address, server_port);
+            // s.send_to(boost::asio::buffer(response.data() , response.size()), destination);
         }
         catch (std::exception& e)
         {
