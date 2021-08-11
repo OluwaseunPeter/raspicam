@@ -243,11 +243,12 @@ private:
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
-            processImage(testImage , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours){
+            processImage(testImage , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
+            cv::Rect& rec , int workId){
                 double t1 = double (cv::getTickCount());
                 double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
                 float fps = ( float ) ( ( float ) ( 1 ) / secondsElapse );
-                send_to_server(contours , address , request_id , fps);
+                send_to_server(contours , address , request_id , fps , rec , workId);
             });
             
             do_receive();
@@ -259,7 +260,8 @@ private:
     void send_to_server(std::vector<std::vector<cv::Point> > &contours , 
                         boost::asio::ip::address address,
                         std::string request_id,
-                        float fps)
+                        float fps,
+                        cv::Rect& rec , int workId)
     {
         // boost::asio::ip::tcp::socket sock(io_context_);
         // boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
@@ -289,12 +291,13 @@ private:
             
             boost::json::object contourDetails({
                 {"area" , area },
-                {"center" , {center.x , center.y , radius}},
+                {"center" , {center.x + rec.x , center.y + rec.y, radius}},
                 });
             contours_arrays.emplace_back(contourDetails);
         }
 
         obj["contours"] = contours_arrays;
+        obj["job_id"] = workId;
         obj["device_id"] = RapsInfo.SerialNumber;
 
         try {
@@ -386,15 +389,17 @@ void showUsage() {
     cout<<endl;
 }
 
-void findImageContours(cv::Mat &image , boost::function<void(std::vector<std::vector<cv::Point> >&)> callback){
+void findImageContours(cv::Mat &image , cv::Rect& rec , int workId , 
+                        boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback){
     cv::Mat thresh;
     cv::threshold(image, thresh, 200, 255, cv::THRESH_BINARY );//+ cv::THRESH_OTSU);
     std::vector<std::vector<cv::Point> > contours;
     cv::findContours( thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE );
-    callback(contours);
+    callback(contours , rec , workId);
 }
 
-void processImage(cv::Mat &image , boost::function<void(std::vector<std::vector<cv::Point> >&)> callback){
+void processImage(cv::Mat &image , 
+                boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback){
     int W = image.size().width;
     int halfW = W/2;
 
@@ -411,10 +416,10 @@ void processImage(cv::Mat &image , boost::function<void(std::vector<std::vector<
     Mat cropped3 = image(rec3);
     Mat cropped4 = image(rec4);
 
-    boost::thread process1(findImageContours , cropped1 , callback);
-    boost::thread process2(findImageContours , cropped2 , callback);
-    boost::thread process3(findImageContours , cropped3 , callback);
-    boost::thread process4(findImageContours , cropped4 , callback);
+    boost::thread process1(findImageContours , cropped1 , rec1, 1, callback);
+    boost::thread process2(findImageContours , cropped2 , rec2, 2, callback);
+    boost::thread process3(findImageContours , cropped3 , rec3, 3, callback);
+    boost::thread process4(findImageContours , cropped4 , rec4, 4, callback);
 
     // process1.join();
     // process2.join();
@@ -480,7 +485,7 @@ int main ( int argc,char **argv ) {
         contourFPS += double (t1-t0);
 
         t0 = double (cv::getTickCount());
-        processImage(image , [](std::vector<std::vector<cv::Point> > &contours){
+        processImage(image , [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
 
         });
         t1 = double (cv::getTickCount());
