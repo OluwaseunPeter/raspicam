@@ -264,19 +264,6 @@ private:
                         float fps,
                         cv::Rect& rec , int workId)
     {
-        // boost::asio::ip::tcp::socket sock(io_context_);
-        // boost::asio::ip::tcp::endpoint sender_endpoint(address, server_port);
-        // boost::system::error_code error;
-        // sock.connect(sender_endpoint, error);
-
-        // if(error){
-        //     std::cerr << boost::system::system_error(error).what() << std::endl;
-        //     return;
-        // }
-
-        // boost::asio::ip::tcp::no_delay option(true);
-        // sock.set_option(option);
-
         boost::json::object obj;
         obj["request_id"] = request_id;
         obj["fps"] = fps;
@@ -306,8 +293,6 @@ private:
             std::ostream response_stream(&response);
             response_stream << obj;
             
-            // boost::asio::write(sock, response);
-            
             boost::asio::ip::udp::socket s(io_context_, 
                 boost::asio::ip::udp::endpoint(
                         boost::asio::ip::udp::v4(), 0));
@@ -318,8 +303,6 @@ private:
         {
             std::cerr << "Exception: " << e.what() << "\n";
         }
-
-        // sock.close();
     }
 
   boost::asio::ip::udp::socket socket_;
@@ -401,10 +384,16 @@ void findImageContours(cv::Mat &image , cv::Rect& rec , int workId ,
 
 void processImage(cv::Mat &image , 
                 boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback){
-    int W = image.size().width;
+
+    int down_width = 640;
+    int down_height = 320;
+    cv::Mat resized;
+    cv::resize(image, resized, cv::Size(down_width, down_height), cv::INTER_LINEAR);
+
+    int W = resized.size().width;
     int halfW = W/2;
 
-    int H = image.size().height;
+    int H = resized.size().height;
     int halfH = H/2;
     
     cv::Rect rec1(0,0, halfW, halfH);
@@ -412,10 +401,10 @@ void processImage(cv::Mat &image ,
     cv::Rect rec3(0,halfH, halfW, halfH);
     cv::Rect rec4(halfW,halfH, halfW, halfH);
     
-    Mat cropped1 = image(rec1);
-    Mat cropped2 = image(rec2);
-    Mat cropped3 = image(rec3);
-    Mat cropped4 = image(rec4);
+    Mat cropped1 = resized(rec1);
+    Mat cropped2 = resized(rec2);
+    Mat cropped3 = resized(rec3);
+    Mat cropped4 = resized(rec4);
 
     boost::thread process1(findImageContours , cropped1 , rec1, 1, callback);
     boost::thread process2(findImageContours , cropped2 , rec2, 2, callback);
