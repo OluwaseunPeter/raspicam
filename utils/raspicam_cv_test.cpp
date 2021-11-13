@@ -54,7 +54,7 @@ bool doTestSpeedOnly=false;
 constexpr short multicast_port = 30001;
 constexpr short server_port = 30002;
 
-void processImage(cv::Mat &image , 
+void processImage(cv::Mat &image , bool shouldJoin,
                 boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback);
 
 class  raspiInfo
