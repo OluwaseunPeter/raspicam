@@ -54,7 +54,7 @@ bool doTestSpeedOnly=false;
 constexpr short multicast_port = 30001;
 constexpr short server_port = 30002;
 
-void processImage(cv::Mat &image , bool shouldJoin,
+void processImage(cv::Mat &image , bool shouldJoin, bool singleThread,
                 boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback);
 
 class  raspiInfo
@@ -244,7 +244,7 @@ private:
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
-            processImage(testImage , false , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
+            processImage(testImage , false , true, [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
             cv::Rect& rec , int workId){
                 double t1 = double (cv::getTickCount());
                 double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
@@ -384,6 +384,7 @@ void findImageContours(cv::Mat &image , cv::Rect& rec , int workId ,
 
 void processImage(cv::Mat &image , 
                 bool shouldJoin,
+                bool singleThread,
                 boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback){
 
     int down_width = 640;
@@ -392,31 +393,40 @@ void processImage(cv::Mat &image ,
     cv::resize(image, resized, cv::Size(down_width, down_height), cv::INTER_LINEAR);
 
     int W = resized.size().width;
-    int halfW = W/2;
-
     int H = resized.size().height;
-    int halfH = H/2;
-    
-    cv::Rect rec1(0,0, halfW, halfH);
-    cv::Rect rec2(halfW,0, halfW, halfH);
-    cv::Rect rec3(0,halfH, halfW, halfH);
-    cv::Rect rec4(halfW,halfH, halfW, halfH);
-    
-    Mat cropped1 = resized(rec1);
-    Mat cropped2 = resized(rec2);
-    Mat cropped3 = resized(rec3);
-    Mat cropped4 = resized(rec4);
 
-    boost::thread process1(findImageContours , cropped1 , rec1, 1, callback);
-    boost::thread process2(findImageContours , cropped2 , rec2, 2, callback);
-    boost::thread process3(findImageContours , cropped3 , rec3, 3, callback);
-    boost::thread process4(findImageContours , cropped4 , rec4, 4, callback);
+    if(singleThread){
+        
+        int halfW = W/2;
+        int halfH = H/2;
+        
+        cv::Rect rec1(0,0, halfW, halfH);
+        cv::Rect rec2(halfW,0, halfW, halfH);
+        cv::Rect rec3(0,halfH, halfW, halfH);
+        cv::Rect rec4(halfW,halfH, halfW, halfH);
 
-    if (shouldJoin){
-        process1.join();
-        process2.join();
-        process3.join();
-        process4.join();
+        Mat cropped1 = resized(rec1);
+        Mat cropped2 = resized(rec2);
+        Mat cropped3 = resized(rec3);
+        Mat cropped4 = resized(rec4);
+
+        boost::thread process1(findImageContours , cropped1 , rec1, 1, callback);
+        boost::thread process2(findImageContours , cropped2 , rec2, 2, callback);
+        boost::thread process3(findImageContours , cropped3 , rec3, 3, callback);
+        boost::thread process4(findImageContours , cropped4 , rec4, 4, callback);
+
+        if (shouldJoin){
+            process1.join();
+            process2.join();
+            process3.join();
+            process4.join();
+        }
+    }else {
+        cv::Rect rec1(0,0, W, H);
+        boost::thread process1(findImageContours , resized , rec1, 0, callback);
+        if (shouldJoin){
+            process1.join();
+        }
     }
 }
 
@@ -478,7 +488,7 @@ int main ( int argc,char **argv ) {
         contourFPS += double (t1-t0);
 
         t0 = double (cv::getTickCount());
-        processImage(image , true , [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
+        processImage(image , true , true, [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
 
         });
         t1 = double (cv::getTickCount());
