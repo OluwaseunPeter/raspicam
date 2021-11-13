@@ -244,7 +244,7 @@ private:
 
             std::string request_id(data_.data() , length);
             boost::asio::ip::address address = sender_endpoint_.address();
-            processImage(testImage , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
+            processImage(testImage , false , [this,address,request_id, t0](std::vector<std::vector<cv::Point> > &contours , 
             cv::Rect& rec , int workId){
                 double t1 = double (cv::getTickCount());
                 double secondsElapse = (t1 - t0) / double ( cv::getTickFrequency() );
@@ -383,6 +383,7 @@ void findImageContours(cv::Mat &image , cv::Rect& rec , int workId ,
 }
 
 void processImage(cv::Mat &image , 
+                bool shouldJoin,
                 boost::function<void(std::vector<std::vector<cv::Point> >&,cv::Rect&,int)> callback){
 
     int down_width = 640;
@@ -411,10 +412,12 @@ void processImage(cv::Mat &image ,
     boost::thread process3(findImageContours , cropped3 , rec3, 3, callback);
     boost::thread process4(findImageContours , cropped4 , rec4, 4, callback);
 
-    // process1.join();
-    // process2.join();
-    // process3.join();
-    // process4.join();
+    if (shouldJoin){
+        process1.join();
+        process2.join();
+        process3.join();
+        process4.join();
+    }
 }
 
 int main ( int argc,char **argv ) {
@@ -475,7 +478,7 @@ int main ( int argc,char **argv ) {
         contourFPS += double (t1-t0);
 
         t0 = double (cv::getTickCount());
-        processImage(image , [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
+        processImage(image , true , [](std::vector<std::vector<cv::Point> > &contours, cv::Rect& rec , int workId){
 
         });
         t1 = double (cv::getTickCount());
