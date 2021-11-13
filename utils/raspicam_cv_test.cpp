@@ -395,7 +395,7 @@ void processImage(cv::Mat &image ,
     int W = resized.size().width;
     int H = resized.size().height;
 
-    if(singleThread){
+    if(!singleThread){
         
         int halfW = W/2;
         int halfH = H/2;
