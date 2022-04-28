@@ -11,6 +11,7 @@ xargs -d '\n' -I{} cp --copy-contents {} ./lib
 patchelf --set-rpath "\$ORIGIN/lib" "$1"
 
 
+##
 # ldd raspicam_cv_test |awk '$3 ~ /^ *\// {print $1,$3}' | sort |cut -d\  -f2
 # join \
 #     <(ldd "$1" |awk '$3 ~ /^ *\// {print $1,$3}' |sort) \
